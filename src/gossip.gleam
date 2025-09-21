@@ -74,11 +74,9 @@ pub fn run_gossip_simulation(
   use actors <- result.try(start_gossip_actors(num_nodes, neighbor_map))
   io.println("Gossip actors started successfully")
 
-  let rumor = "Hello, this is a rumor!"
   case dict.get(actors, 0) {
     Ok(first_actor) -> {
-      io.println("Sending StartGossip to node 0")
-      process.send(first_actor, StartGossip(rumor))
+      process.send(first_actor, StartGossip("Hello, this is a rumor!"))
       io.println("Waiting for gossip convergence")
       let time_taken = wait_for_gossip_convergence(actors)
       io.println("Gossip converged in " <> int.to_string(time_taken) <> " ms")
@@ -94,21 +92,10 @@ fn start_gossip_actors(
   num_nodes: Int,
   neighbor_map: NeighborMap,
 ) -> Result(Dict(Int, Subject(GossipMessage)), String) {
-  io.println(
-    "Starting gossip actors for " <> int.to_string(num_nodes) <> " nodes",
-  )
   let actor_results =
     list.range(0, num_nodes - 1)
     |> list.map(fn(node_id) {
-      io.println("Creating actor for node " <> int.to_string(node_id))
       let neighbors = dict.get(neighbor_map, node_id) |> result.unwrap([])
-      io.println(
-        "Node "
-        <> int.to_string(node_id)
-        <> " has "
-        <> int.to_string(list.length(neighbors))
-        <> " neighbors",
-      )
 
       let initial_state =
         GossipState(
@@ -128,27 +115,14 @@ fn start_gossip_actors(
         |> actor.on_message(handle_gossip_message)
         |> actor.start
       {
-        Ok(actor) -> {
-          io.println(
-            "Actor for node "
-            <> int.to_string(node_id)
-            <> " started successfully",
-          )
-          Ok(#(node_id, actor.data))
-        }
-        Error(_) -> {
-          io.println(
-            "Failed to start actor for node " <> int.to_string(node_id),
-          )
-          Error(#(node_id, "Failed to start actor"))
-        }
+        Ok(actor) -> Ok(#(node_id, actor.data))
+        Error(_) -> Error(#(node_id, "Failed to start actor"))
       }
     })
 
   let subjects = list.try_map(actor_results, fn(result) { result })
   case subjects {
     Ok(subject_list) -> {
-      io.println("All actors started, setting up neighbor subjects")
       let subject_dict = dict.from_list(subject_list)
       let ready_subject = process.new_subject()
 
@@ -167,14 +141,10 @@ fn start_gossip_actors(
         process.receive(ready_subject, 5000)
         |> result.unwrap(Nil)
       })
-      io.println("All actors are ready")
 
       Ok(subject_dict)
     }
-    Error(_) -> {
-      io.println("Failed to start some gossip actors")
-      Error("Failed to start gossip actors")
-    }
+    Error(_) -> Error("Failed to start gossip actors")
   }
 }
 
@@ -184,9 +154,6 @@ fn handle_gossip_message(
 ) -> actor.Next(GossipState, GossipMessage) {
   case message {
     UpdateNeighborSubjects(subjects, reply_to) -> {
-      io.println(
-        "Node " <> int.to_string(state.node_id) <> " updating neighbor subjects",
-      )
       let neighbor_subjects =
         list.filter_map(state.neighbors, fn(neighbor_id) {
           case dict.get(subjects, neighbor_id) {
@@ -198,20 +165,11 @@ fn handle_gossip_message(
 
       // Send the confirmation message
       process.send(reply_to, Nil)
-      io.println(
-        "Node " <> int.to_string(state.node_id) <> " neighbor subjects updated",
-      )
 
       actor.continue(GossipState(..state, neighbor_subjects: neighbor_subjects))
     }
 
     StartGossip(rumor) -> {
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " starting gossip with rumor: "
-        <> rumor,
-      )
       // Mark as having heard once; periodic Tick will keep sending
       let st1 =
         GossipState(..state, rumor: rumor, rumor_count: 1, send_count: 0)
@@ -219,24 +177,9 @@ fn handle_gossip_message(
     }
 
     Tick -> {
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " received Tick, active: "
-        <> bool_to_string(state.is_active)
-        <> ", rumor: '"
-        <> state.rumor
-        <> "', send_count: "
-        <> int.to_string(state.send_count),
-      )
       // Periodic push while active and rumor known
       case state.is_active && state.rumor != "" && state.neighbors != [] {
         False -> {
-          io.println(
-            "Node "
-            <> int.to_string(state.node_id)
-            <> " not sending rumor (inactive or no rumor or no neighbors)",
-          )
           actor.continue(state)
         }
         True -> {
@@ -244,33 +187,13 @@ fn handle_gossip_message(
           let #(idx, rng2) = pick_index(n, state.rng)
           case list.drop(state.neighbors, idx) |> list.first {
             Ok(neighbor_id) -> {
-              io.println(
-                "Node "
-                <> int.to_string(state.node_id)
-                <> " sending rumor to neighbor "
-                <> int.to_string(neighbor_id),
-              )
               case dict.get(state.neighbor_subjects, neighbor_id) {
                 Ok(neighbor_subject) ->
                   process.send(neighbor_subject, Rumor(state.rumor))
-                Error(_) ->
-                  io.println(
-                    "Node "
-                    <> int.to_string(state.node_id)
-                    <> " failed to find subject for neighbor "
-                    <> int.to_string(neighbor_id),
-                  )
+                Error(_) -> Nil
               }
               let new_send_count = state.send_count + 1
               let new_active = new_send_count < state.convergence_threshold
-              io.println(
-                "Node "
-                <> int.to_string(state.node_id)
-                <> " send_count now "
-                <> int.to_string(new_send_count)
-                <> ", active: "
-                <> bool_to_string(new_active),
-              )
               actor.continue(
                 GossipState(
                   ..state,
@@ -281,11 +204,6 @@ fn handle_gossip_message(
               )
             }
             Error(_) -> {
-              io.println(
-                "Node "
-                <> int.to_string(state.node_id)
-                <> " failed to pick neighbor",
-              )
               actor.continue(GossipState(..state, rng: rng2))
             }
           }
@@ -294,20 +212,8 @@ fn handle_gossip_message(
     }
 
     Rumor(content) -> {
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " received rumor: '"
-        <> content
-        <> "'",
-      )
       case content == state.rumor {
         False -> {
-          io.println(
-            "Node "
-            <> int.to_string(state.node_id)
-            <> " heard new rumor for the first time",
-          )
           // First time for this rumor
           let st1 = GossipState(..state, rumor: content, rumor_count: 1)
           actor.continue(st1)
@@ -315,12 +221,6 @@ fn handle_gossip_message(
         True -> {
           let new_count = state.rumor_count + 1
           let st1 = GossipState(..state, rumor_count: new_count)
-          io.println(
-            "Node "
-            <> int.to_string(state.node_id)
-            <> " rumor count: "
-            <> int.to_string(new_count),
-          )
           actor.continue(st1)
         }
       }
@@ -339,7 +239,6 @@ fn handle_gossip_message(
     }
 
     GetStatus(reply_to) -> {
-      io.println("Node " <> int.to_string(state.node_id) <> " sending status")
       process.send(
         reply_to,
         GossipStatus(state.node_id, state.rumor_count, state.is_active),
@@ -355,12 +254,10 @@ fn handle_gossip_message(
 }
 
 fn broadcast_tick_gossip(actors: Dict(Int, Subject(GossipMessage))) -> Nil {
-  io.println("Broadcasting Tick to all gossip actors")
   dict.each(actors, fn(_, subject) { process.send(subject, Tick) })
 }
 
 fn wait_for_gossip_convergence(actors: Dict(Int, Subject(GossipMessage))) -> Int {
-  io.println("Starting convergence wait")
   wait_for_convergence_helper(actors, 0)
 }
 
@@ -368,7 +265,6 @@ fn wait_for_convergence_helper(
   actors: Dict(Int, Subject(GossipMessage)),
   attempt: Int,
 ) -> Int {
-  io.println("Convergence check attempt " <> int.to_string(attempt))
   broadcast_tick_gossip(actors)
   process.sleep(10)
   let converged = check_all_converged(actors)
@@ -384,7 +280,6 @@ fn wait_for_convergence_helper(
 }
 
 fn check_all_converged(actors: Dict(Int, Subject(GossipMessage))) -> Bool {
-  io.println("Checking convergence for all actors")
   check_convergence_for_actors(dict.to_list(actors))
 }
 
@@ -392,23 +287,13 @@ fn check_convergence_for_actors(
   actors: List(#(Int, Subject(GossipMessage))),
 ) -> Bool {
   case actors {
-    [] -> {
-      io.println("All actors checked, all converged")
-      True
-    }
-    [#(node_id, subject), ..rest] -> {
-      io.println("Checking convergence for node " <> int.to_string(node_id))
+    [] -> True
+    [#(_, subject), ..rest] -> {
       let reply_subject = process.new_subject()
       process.send(subject, CheckConvergence(reply_subject))
       case process.receive(reply_subject, 100) {
-        Ok(True) -> {
-          io.println("Node " <> int.to_string(node_id) <> " converged")
-          check_convergence_for_actors(rest)
-        }
-        _ -> {
-          io.println("Node " <> int.to_string(node_id) <> " not converged")
-          False
-        }
+        Ok(True) -> check_convergence_for_actors(rest)
+        _ -> False
       }
     }
   }

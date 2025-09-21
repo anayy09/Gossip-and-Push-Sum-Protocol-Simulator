@@ -33,7 +33,7 @@ pub fn create_topology(
   }
   case result {
     Ok(_) -> io.println("Topology created successfully")
-    Error(e) -> io.println("Topology creation failed: " <> e)
+    Error(_) -> Nil
   }
   result
 }
@@ -48,18 +48,10 @@ fn topology_to_string(topo: Topology) -> String {
 }
 
 fn create_full_topology(num_nodes: Int) -> Result(NeighborMap, String) {
-  io.println("Creating full topology")
   let node_ids = list.range(0, num_nodes - 1)
   let neighbor_map =
     list.map(node_ids, fn(node_id) {
       let neighbors = list.filter(node_ids, fn(n) { n != node_id })
-      io.println(
-        "Node "
-        <> int.to_string(node_id)
-        <> " has "
-        <> int.to_string(list.length(neighbors))
-        <> " neighbors",
-      )
       #(node_id, neighbors)
     })
     |> dict.from_list
@@ -68,42 +60,17 @@ fn create_full_topology(num_nodes: Int) -> Result(NeighborMap, String) {
 }
 
 fn create_line_topology(num_nodes: Int) -> Result(NeighborMap, String) {
-  io.println("Creating line topology")
   let neighbor_map =
     list.range(0, num_nodes - 1)
     |> list.map(fn(node_id) {
       let neighbors = case node_id {
         0 ->
           case num_nodes > 1 {
-            True -> {
-              io.println("Node 0 connected to node 1")
-              [1]
-            }
-            False -> {
-              io.println("Node 0 has no neighbors")
-              []
-            }
+            True -> [1]
+            False -> []
           }
-        n if n == num_nodes - 1 -> {
-          io.println(
-            "Node "
-            <> int.to_string(n)
-            <> " connected to node "
-            <> int.to_string(n - 1),
-          )
-          [n - 1]
-        }
-        n -> {
-          io.println(
-            "Node "
-            <> int.to_string(n)
-            <> " connected to nodes "
-            <> int.to_string(n - 1)
-            <> " and "
-            <> int.to_string(n + 1),
-          )
-          [n - 1, n + 1]
-        }
+        n if n == num_nodes - 1 -> [n - 1]
+        n -> [n - 1, n + 1]
       }
       #(node_id, neighbors)
     })
@@ -113,33 +80,13 @@ fn create_line_topology(num_nodes: Int) -> Result(NeighborMap, String) {
 }
 
 fn create_3d_grid_topology(num_nodes: Int) -> Result(NeighborMap, String) {
-  io.println("Creating 3D grid topology")
   let cube_size = find_cube_size(num_nodes)
-  io.println("Cube size: " <> int.to_string(cube_size))
 
   let neighbor_map =
     list.range(0, num_nodes - 1)
     |> list.map(fn(node_id) {
       let #(x, y, z) = node_id_to_3d_coords(node_id, cube_size)
-      io.println(
-        "Node "
-        <> int.to_string(node_id)
-        <> " at coords ("
-        <> int.to_string(x)
-        <> ","
-        <> int.to_string(y)
-        <> ","
-        <> int.to_string(z)
-        <> ")",
-      )
       let neighbors = get_3d_grid_neighbors(x, y, z, cube_size, num_nodes)
-      io.println(
-        "Node "
-        <> int.to_string(node_id)
-        <> " has "
-        <> int.to_string(list.length(neighbors))
-        <> " neighbors",
-      )
       #(node_id, neighbors)
     })
     |> dict.from_list
@@ -150,7 +97,6 @@ fn create_3d_grid_topology(num_nodes: Int) -> Result(NeighborMap, String) {
 fn create_imperfect_3d_grid_topology(
   num_nodes: Int,
 ) -> Result(NeighborMap, String) {
-  io.println("Creating imperfect 3D grid topology")
   use base_topology <- result.try(create_3d_grid_topology(num_nodes))
 
   let enhanced_topology =
@@ -158,23 +104,8 @@ fn create_imperfect_3d_grid_topology(
       let random_neighbor =
         generate_random_neighbor(node_id, base_neighbors, num_nodes)
       case list.contains(base_neighbors, random_neighbor) {
-        True -> {
-          io.println(
-            "Node "
-            <> int.to_string(node_id)
-            <> " random neighbor already in base neighbors",
-          )
-          base_neighbors
-        }
-        False -> {
-          io.println(
-            "Node "
-            <> int.to_string(node_id)
-            <> " adding random neighbor "
-            <> int.to_string(random_neighbor),
-          )
-          [random_neighbor, ..base_neighbors]
-        }
+        True -> base_neighbors
+        False -> [random_neighbor, ..base_neighbors]
       }
     })
 

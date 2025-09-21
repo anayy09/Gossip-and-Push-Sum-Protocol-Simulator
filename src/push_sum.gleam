@@ -15,10 +15,6 @@ fn bool_to_string(b: Bool) -> String {
   }
 }
 
-fn float_to_string(f: Float) -> String {
-  float.to_string(f)
-}
-
 pub type PushSumMessage {
   PushSumPair(s: Float, w: Float)
   StartPushSum
@@ -90,7 +86,6 @@ pub fn run_push_sum_simulation(
 
   case dict.get(actors, 0) {
     Ok(first_actor) -> {
-      io.println("Sending StartPushSum to node 0")
       process.send(first_actor, StartPushSum)
       io.println("Waiting for push-sum convergence")
       let time_taken = wait_for_push_sum_convergence(actors)
@@ -107,21 +102,10 @@ fn start_push_sum_actors(
   num_nodes: Int,
   neighbor_map: NeighborMap,
 ) -> Result(Dict(Int, Subject(PushSumMessage)), String) {
-  io.println(
-    "Starting push-sum actors for " <> int.to_string(num_nodes) <> " nodes",
-  )
   let actor_results =
     list.range(0, num_nodes - 1)
     |> list.map(fn(node_id) {
-      io.println("Creating actor for node " <> int.to_string(node_id))
       let neighbors = dict.get(neighbor_map, node_id) |> result.unwrap([])
-      io.println(
-        "Node "
-        <> int.to_string(node_id)
-        <> " has "
-        <> int.to_string(list.length(neighbors))
-        <> " neighbors",
-      )
 
       let initial_state =
         PushSumState(
@@ -138,41 +122,20 @@ fn start_push_sum_actors(
           stability_rounds: 3,
           rng: node_id * 65_537 + 9731,
         )
-      io.println(
-        "Node "
-        <> int.to_string(node_id)
-        <> " initial s="
-        <> float_to_string(initial_state.s)
-        <> ", w="
-        <> float_to_string(initial_state.w),
-      )
 
       case
         actor.new(initial_state)
         |> actor.on_message(handle_push_sum_message)
         |> actor.start
       {
-        Ok(actor) -> {
-          io.println(
-            "Actor for node "
-            <> int.to_string(node_id)
-            <> " started successfully",
-          )
-          Ok(#(node_id, actor.data))
-        }
-        Error(_) -> {
-          io.println(
-            "Failed to start actor for node " <> int.to_string(node_id),
-          )
-          Error(#(node_id, "Failed to start actor"))
-        }
+        Ok(actor) -> Ok(#(node_id, actor.data))
+        Error(_) -> Error(#(node_id, "Failed to start actor"))
       }
     })
 
   let subjects = list.try_map(actor_results, fn(result) { result })
   case subjects {
     Ok(subject_list) -> {
-      io.println("All actors started, setting up neighbor subjects")
       let subject_dict = dict.from_list(subject_list)
 
       // Create a subject for actors to reply to
@@ -194,14 +157,10 @@ fn start_push_sum_actors(
         process.receive(ready_subject, 5000)
         |> result.unwrap(Nil)
       })
-      io.println("All actors are ready")
 
       Ok(subject_dict)
     }
-    Error(_) -> {
-      io.println("Failed to start some push-sum actors")
-      Error("Failed to start push-sum actors")
-    }
+    Error(_) -> Error("Failed to start push-sum actors")
   }
 }
 
@@ -211,9 +170,6 @@ fn handle_push_sum_message(
 ) -> actor.Next(PushSumState, PushSumMessage) {
   case message {
     UpdateNeighborSubjects(subjects, reply_to) -> {
-      io.println(
-        "Node " <> int.to_string(state.node_id) <> " updating neighbor subjects",
-      )
       let neighbor_subjects =
         list.filter_map(state.neighbors, fn(neighbor_id) {
           case dict.get(subjects, neighbor_id) {
@@ -225,9 +181,6 @@ fn handle_push_sum_message(
 
       // Send the confirmation message
       process.send(reply_to, Nil)
-      io.println(
-        "Node " <> int.to_string(state.node_id) <> " neighbor subjects updated",
-      )
 
       actor.continue(
         PushSumState(..state, neighbor_subjects: neighbor_subjects),
@@ -235,28 +188,12 @@ fn handle_push_sum_message(
     }
 
     StartPushSum -> {
-      io.println(
-        "Node " <> int.to_string(state.node_id) <> " starting push-sum",
-      )
       actor.continue(state)
     }
 
     Tick -> {
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " received Tick, active: "
-        <> bool_to_string(state.is_active)
-        <> ", neighbors: "
-        <> int.to_string(list.length(state.neighbors)),
-      )
       case state.is_active && state.neighbors != [] {
         False -> {
-          io.println(
-            "Node "
-            <> int.to_string(state.node_id)
-            <> " not sending (inactive or no neighbors)",
-          )
           actor.continue(state)
         }
         True -> {
@@ -277,16 +214,6 @@ fn handle_push_sum_message(
             True -> state.consecutive_stable_count + 1
             False -> 0
           }
-          io.println(
-            "Node "
-            <> int.to_string(state.node_id)
-            <> " after sending, ratio="
-            <> float_to_string(new_ratio)
-            <> ", stable: "
-            <> bool_to_string(is_stable)
-            <> ", consecutive: "
-            <> int.to_string(new_consecutive_stable),
-          )
 
           let st1 =
             PushSumState(
@@ -297,44 +224,19 @@ fn handle_push_sum_message(
               consecutive_stable_count: new_consecutive_stable,
               is_active: new_consecutive_stable < state.stability_rounds,
             )
-          io.println(
-            "Node "
-            <> int.to_string(state.node_id)
-            <> " sending s="
-            <> float_to_string(out_s)
-            <> ", w="
-            <> float_to_string(out_w),
-          )
 
           let n = list.length(st1.neighbors)
           let #(idx, rng2) = pick_index(n, st1.rng)
           case list.drop(st1.neighbors, idx) |> list.first {
             Ok(neighbor_id) -> {
-              io.println(
-                "Node "
-                <> int.to_string(state.node_id)
-                <> " sending to neighbor "
-                <> int.to_string(neighbor_id),
-              )
               case dict.get(st1.neighbor_subjects, neighbor_id) {
                 Ok(neighbor_subject) ->
                   process.send(neighbor_subject, PushSumPair(out_s, out_w))
-                Error(_) ->
-                  io.println(
-                    "Node "
-                    <> int.to_string(state.node_id)
-                    <> " failed to find subject for neighbor "
-                    <> int.to_string(neighbor_id),
-                  )
+                Error(_) -> Nil
               }
               actor.continue(PushSumState(..st1, rng: rng2))
             }
             Error(_) -> {
-              io.println(
-                "Node "
-                <> int.to_string(state.node_id)
-                <> " failed to pick neighbor",
-              )
               actor.continue(PushSumState(..st1, rng: rng2))
             }
           }
@@ -343,14 +245,6 @@ fn handle_push_sum_message(
     }
 
     PushSumPair(received_s, received_w) -> {
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " received PushSumPair s="
-        <> float_to_string(received_s)
-        <> ", w="
-        <> float_to_string(received_w),
-      )
       // Combine; ratio for stability check
       let combined_s = state.s +. received_s
       let combined_w = state.w +. received_w
@@ -358,16 +252,6 @@ fn handle_push_sum_message(
         True -> 0.0
         False -> combined_s /. combined_w
       }
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " combined s="
-        <> float_to_string(combined_s)
-        <> ", w="
-        <> float_to_string(combined_w)
-        <> ", ratio="
-        <> float_to_string(new_ratio),
-      )
 
       let updated_ratios =
         [new_ratio, ..state.previous_ratios]
@@ -379,14 +263,6 @@ fn handle_push_sum_message(
         True -> state.consecutive_stable_count + 1
         False -> 0
       }
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " stable: "
-        <> bool_to_string(is_stable)
-        <> ", consecutive: "
-        <> int.to_string(new_consecutive_stable),
-      )
 
       // Keep the combined values; next Tick will split and send
       let st1 =
@@ -423,12 +299,6 @@ fn handle_push_sum_message(
         True -> 0.0
         False -> state.s /. state.w
       }
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " sending status, ratio="
-        <> float_to_string(current_ratio),
-      )
       process.send(
         reply_to,
         PushSumStatus(
@@ -461,14 +331,12 @@ fn check_ratio_stability(ratios: List(Float), threshold: Float) -> Bool {
 }
 
 fn broadcast_tick_push(actors: Dict(Int, Subject(PushSumMessage))) -> Nil {
-  io.println("Broadcasting Tick to all push-sum actors")
   dict.each(actors, fn(_, subject) { process.send(subject, Tick) })
 }
 
 fn wait_for_push_sum_convergence(
   actors: Dict(Int, Subject(PushSumMessage)),
 ) -> Int {
-  io.println("Starting push-sum convergence wait")
   wait_for_push_sum_convergence_helper(actors, 0)
 }
 
@@ -476,11 +344,9 @@ fn wait_for_push_sum_convergence_helper(
   actors: Dict(Int, Subject(PushSumMessage)),
   attempt: Int,
 ) -> Int {
-  io.println("Push-sum convergence check attempt " <> int.to_string(attempt))
   broadcast_tick_push(actors)
   process.sleep(10)
   let converged = check_all_push_sum_converged(actors)
-  io.println("Push-sum convergence status: " <> bool_to_string(converged))
   case converged || attempt > 2000 {
     True -> {
       let time = attempt * 10
@@ -496,7 +362,6 @@ fn wait_for_push_sum_convergence_helper(
 fn check_all_push_sum_converged(
   actors: Dict(Int, Subject(PushSumMessage)),
 ) -> Bool {
-  io.println("Checking push-sum convergence for all actors")
   check_push_sum_convergence_for_actors(dict.to_list(actors))
 }
 
@@ -504,25 +369,15 @@ fn check_push_sum_convergence_for_actors(
   actors: List(#(Int, Subject(PushSumMessage))),
 ) -> Bool {
   case actors {
-    [] -> {
-      io.println("All push-sum actors checked, all converged")
-      True
-    }
-    [#(node_id, subject), ..rest] -> {
-      io.println(
-        "Checking push-sum convergence for node " <> int.to_string(node_id),
-      )
+    [] -> True
+    [#(_, subject), ..rest] -> {
       let reply_subject = process.new_subject()
       process.send(subject, CheckConvergence(reply_subject))
       case process.receive(reply_subject, 100) {
         Ok(True) -> {
-          io.println("Node " <> int.to_string(node_id) <> " converged")
           check_push_sum_convergence_for_actors(rest)
         }
-        _ -> {
-          io.println("Node " <> int.to_string(node_id) <> " not converged")
-          False
-        }
+        _ -> False
       }
     }
   }

@@ -66,29 +66,17 @@ pub fn main() -> Nil {
 fn get_command_line_args(
   args: List(String),
 ) -> Result(#(Int, Topology, Algorithm), String) {
-  io.println("Parsing command line arguments")
   case args {
     [num_nodes_str, topology_str, algorithm_str] -> {
-      io.println(
-        "Arguments: num_nodes_str="
-        <> num_nodes_str
-        <> ", topology_str="
-        <> topology_str
-        <> ", algorithm_str="
-        <> algorithm_str,
-      )
       use num_nodes <- result.try(
         int.parse(num_nodes_str)
         |> result.map_error(fn(_) {
           "Invalid number of nodes: " <> num_nodes_str
         }),
       )
-      io.println("Parsed num_nodes: " <> int.to_string(num_nodes))
 
       use topo <- result.try(parse_topology(topology_str))
-      io.println("Parsed topology: " <> topology_to_string(topo))
       use algorithm <- result.try(parse_algorithm(algorithm_str))
-      io.println("Parsed algorithm: " <> algorithm_to_string(algorithm))
 
       Ok(#(num_nodes, topo, algorithm))
     }
@@ -100,24 +88,11 @@ fn get_command_line_args(
 }
 
 fn parse_topology(topology_str: String) -> Result(Topology, String) {
-  io.println("Parsing topology: " <> topology_str)
   case topology_str {
-    "full" -> {
-      io.println("Parsed full topology")
-      Ok(topology.Full)
-    }
-    "3D" -> {
-      io.println("Parsed 3D grid topology")
-      Ok(topology.ThreeDGrid)
-    }
-    "line" -> {
-      io.println("Parsed line topology")
-      Ok(topology.Line)
-    }
-    "imp3D" -> {
-      io.println("Parsed imperfect 3D grid topology")
-      Ok(topology.ImperfectThreeDGrid)
-    }
+    "full" -> Ok(topology.Full)
+    "3D" -> Ok(topology.ThreeDGrid)
+    "line" -> Ok(topology.Line)
+    "imp3D" -> Ok(topology.ImperfectThreeDGrid)
     _ ->
       Error(
         "Invalid topology: "
@@ -128,16 +103,9 @@ fn parse_topology(topology_str: String) -> Result(Topology, String) {
 }
 
 fn parse_algorithm(algorithm_str: String) -> Result(Algorithm, String) {
-  io.println("Parsing algorithm: " <> algorithm_str)
   case algorithm_str {
-    "gossip" -> {
-      io.println("Parsed gossip algorithm")
-      Ok(Gossip)
-    }
-    "push-sum" -> {
-      io.println("Parsed push-sum algorithm")
-      Ok(PushSum)
-    }
+    "gossip" -> Ok(Gossip)
+    "push-sum" -> Ok(PushSum)
     _ ->
       Error(
         "Invalid algorithm: "
@@ -152,27 +120,13 @@ fn run_simulation(
   topo: Topology,
   algorithm: Algorithm,
 ) -> Result(Int, String) {
-  io.println(
-    "Running simulation with "
-    <> int.to_string(num_nodes)
-    <> " nodes, topology "
-    <> topology_to_string(topo)
-    <> ", algorithm "
-    <> algorithm_to_string(algorithm),
-  )
   // Create topology
   io.println("Creating topology")
   use neighbor_map <- result.try(topology.create_topology(num_nodes, topo))
   io.println("Topology created successfully")
 
   case algorithm {
-    Gossip -> {
-      io.println("Starting gossip simulation")
-      gossip.run_gossip_simulation(num_nodes, neighbor_map)
-    }
-    PushSum -> {
-      io.println("Starting push-sum simulation")
-      push_sum.run_push_sum_simulation(num_nodes, neighbor_map)
-    }
+    Gossip -> gossip.run_gossip_simulation(num_nodes, neighbor_map)
+    PushSum -> push_sum.run_push_sum_simulation(num_nodes, neighbor_map)
   }
 }
