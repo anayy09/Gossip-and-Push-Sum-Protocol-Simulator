@@ -1,5 +1,6 @@
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
+import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
@@ -8,12 +9,12 @@ import gleam/result
 import topology.{type NeighborMap}
 import utils.{elapsed_ms, now_milliseconds, print}
 
-fn bool_to_string(b: Bool) -> String {
-  case b {
-    True -> "true"
-    False -> "false"
-  }
-}
+// fn bool_to_string(b: Bool) -> String {
+//   case b {
+//     True -> "true"
+//     False -> "false"
+//   }
+// }
 
 pub type GossipMessage {
   Rumor(content: String)
@@ -43,6 +44,7 @@ pub type GossipState {
     convergence_threshold: Int,
     rng: Int,
     send_count: Int,
+    failure_rate: Float,
   )
 }
 
@@ -68,13 +70,18 @@ fn pick_index(len: Int, rng: Int) -> #(Int, Int) {
 pub fn run_gossip_simulation(
   num_nodes: Int,
   neighbor_map: NeighborMap,
+  failure_rate: Float,
 ) -> Result(Int, String) {
   io.println(
     "Starting gossip simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
   print()
   let start_ms = now_milliseconds()
-  use actors <- result.try(start_gossip_actors(num_nodes, neighbor_map))
+  use actors <- result.try(start_gossip_actors(
+    num_nodes,
+    neighbor_map,
+    failure_rate,
+  ))
   io.println("Gossip actors started successfully")
 
   case dict.get(actors, 0) {
@@ -97,6 +104,7 @@ pub fn run_gossip_simulation(
 fn start_gossip_actors(
   num_nodes: Int,
   neighbor_map: NeighborMap,
+  failure_rate: Float,
 ) -> Result(Dict(Int, Subject(GossipMessage)), String) {
   let actor_results =
     list.range(0, num_nodes - 1)
@@ -114,6 +122,7 @@ fn start_gossip_actors(
           convergence_threshold: 10,
           rng: node_id * 48_271 + 12_345,
           send_count: 0,
+          failure_rate: failure_rate,
         )
 
       case
@@ -193,21 +202,32 @@ fn handle_gossip_message(
           let #(idx, rng2) = pick_index(n, state.rng)
           case list.drop(state.neighbors, idx) |> list.first {
             Ok(neighbor_id) -> {
-              case dict.get(state.neighbor_subjects, neighbor_id) {
-                Ok(neighbor_subject) ->
-                  process.send(neighbor_subject, Rumor(state.rumor))
-                Error(_) -> Nil
+              let threshold = float.truncate(state.failure_rate *. 100.0)
+              let rand = next_rng(rng2) % 100
+              let rng3 = next_rng(rand)
+              case rand < threshold {
+                True -> {
+                  // Message failed
+                  actor.continue(GossipState(..state, rng: rng3))
+                }
+                False -> {
+                  case dict.get(state.neighbor_subjects, neighbor_id) {
+                    Ok(neighbor_subject) ->
+                      process.send(neighbor_subject, Rumor(state.rumor))
+                    Error(_) -> Nil
+                  }
+                  let new_send_count = state.send_count + 1
+                  let new_active = new_send_count < state.convergence_threshold
+                  actor.continue(
+                    GossipState(
+                      ..state,
+                      rng: rng3,
+                      send_count: new_send_count,
+                      is_active: new_active,
+                    ),
+                  )
+                }
               }
-              let new_send_count = state.send_count + 1
-              let new_active = new_send_count < state.convergence_threshold
-              actor.continue(
-                GossipState(
-                  ..state,
-                  rng: rng2,
-                  send_count: new_send_count,
-                  is_active: new_active,
-                ),
-              )
             }
             Error(_) -> {
               actor.continue(GossipState(..state, rng: rng2))
@@ -274,7 +294,7 @@ fn wait_for_convergence_helper(
   broadcast_tick_gossip(actors)
   process.sleep(10)
   let converged = check_all_converged(actors)
-  io.println("Convergence status: " <> bool_to_string(converged))
+  // io.println("Convergence status: " <> bool_to_string(converged))
   case converged || attempt > 2000 {
     True -> {
       let ticks = attempt

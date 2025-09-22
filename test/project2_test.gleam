@@ -53,22 +53,27 @@ pub fn parse_algorithm_invalid_test() {
 
 // Test command line args parsing
 pub fn get_command_line_args_valid_test() {
-  get_command_line_args(["100", "full", "gossip"])
-  |> should.equal(Ok(#(100, topology.Full, project2.Gossip)))
+  get_command_line_args(["100", "full", "gossip", "0.1"])
+  |> should.equal(Ok(#(100, topology.Full, project2.Gossip, 0.1)))
 }
 
 pub fn get_command_line_args_invalid_num_nodes_test() {
-  get_command_line_args(["abc", "full", "gossip"])
+  get_command_line_args(["abc", "full", "gossip", "0.0"])
   |> should.be_error()
 }
 
 pub fn get_command_line_args_invalid_topology_test() {
-  get_command_line_args(["100", "invalid", "gossip"])
+  get_command_line_args(["100", "invalid", "gossip", "0.0"])
   |> should.be_error()
 }
 
 pub fn get_command_line_args_invalid_algorithm_test() {
-  get_command_line_args(["100", "full", "invalid"])
+  get_command_line_args(["100", "full", "invalid", "0.0"])
+  |> should.be_error()
+}
+
+pub fn get_command_line_args_invalid_failure_rate_test() {
+  get_command_line_args(["100", "full", "gossip", "abc"])
   |> should.be_error()
 }
 

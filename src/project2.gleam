@@ -1,4 +1,5 @@
 import argv
+import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
@@ -33,16 +34,18 @@ pub fn main() -> Nil {
   let args = argv.load().arguments
   io.println("Loaded arguments: " <> int.to_string(list.length(args)))
   case get_command_line_args(args) {
-    Ok(#(num_nodes, topo, algorithm)) -> {
+    Ok(#(num_nodes, topo, algorithm, failure_rate)) -> {
       io.println(
         "Parsed args: num_nodes="
         <> int.to_string(num_nodes)
         <> ", topo="
         <> topology_to_string(topo)
         <> ", algorithm="
-        <> algorithm_to_string(algorithm),
+        <> algorithm_to_string(algorithm)
+        <> ", failure_rate="
+        <> float.to_string(failure_rate),
       )
-      case run_simulation(num_nodes, topo, algorithm) {
+      case run_simulation(num_nodes, topo, algorithm, failure_rate) {
         Ok(time_taken) -> {
           io.println(
             "Simulation completed successfully, time taken: "
@@ -65,9 +68,9 @@ pub fn main() -> Nil {
 
 pub fn get_command_line_args(
   args: List(String),
-) -> Result(#(Int, Topology, Algorithm), String) {
+) -> Result(#(Int, Topology, Algorithm, Float), String) {
   case args {
-    [num_nodes_str, topology_str, algorithm_str] -> {
+    [num_nodes_str, topology_str, algorithm_str, failure_rate_str] -> {
       use num_nodes <- result.try(
         int.parse(num_nodes_str)
         |> result.map_error(fn(_) {
@@ -77,12 +80,18 @@ pub fn get_command_line_args(
 
       use topo <- result.try(parse_topology(topology_str))
       use algorithm <- result.try(parse_algorithm(algorithm_str))
+      use failure_rate <- result.try(
+        float.parse(failure_rate_str)
+        |> result.map_error(fn(_) {
+          "Invalid failure rate: " <> failure_rate_str
+        }),
+      )
 
-      Ok(#(num_nodes, topo, algorithm))
+      Ok(#(num_nodes, topo, algorithm, failure_rate))
     }
     _ ->
       Error(
-        "Usage: gleam run <numNodes> <topology> <algorithm>\nExample: gleam run 100 full gossip",
+        "Usage: gleam run <numNodes> <topology> <algorithm> <failureRate>\nExample: gleam run 100 full gossip 0.1",
       )
   }
 }
@@ -119,6 +128,7 @@ fn run_simulation(
   num_nodes: Int,
   topo: Topology,
   algorithm: Algorithm,
+  failure_rate: Float,
 ) -> Result(Int, String) {
   // Create topology
   io.println("Creating topology")
@@ -126,7 +136,9 @@ fn run_simulation(
   io.println("Topology created successfully")
 
   case algorithm {
-    Gossip -> gossip.run_gossip_simulation(num_nodes, neighbor_map)
-    PushSum -> push_sum.run_push_sum_simulation(num_nodes, neighbor_map)
+    Gossip ->
+      gossip.run_gossip_simulation(num_nodes, neighbor_map, failure_rate)
+    PushSum ->
+      push_sum.run_push_sum_simulation(num_nodes, neighbor_map, failure_rate)
   }
 }

@@ -53,6 +53,7 @@ pub type PushSumState {
     convergence_threshold: Float,
     stability_rounds: Int,
     rng: Int,
+    failure_rate: Float,
   )
 }
 
@@ -78,13 +79,18 @@ fn pick_index(len: Int, rng: Int) -> #(Int, Int) {
 pub fn run_push_sum_simulation(
   num_nodes: Int,
   neighbor_map: NeighborMap,
+  failure_rate: Float,
 ) -> Result(Int, String) {
   io.println(
     "Starting push-sum simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
   print()
   let start_ms = now_milliseconds()
-  use actors <- result.try(start_push_sum_actors(num_nodes, neighbor_map))
+  use actors <- result.try(start_push_sum_actors(
+    num_nodes,
+    neighbor_map,
+    failure_rate,
+  ))
   io.println("Push-sum actors started successfully")
 
   case dict.get(actors, 0) {
@@ -111,6 +117,7 @@ pub fn run_push_sum_simulation(
 fn start_push_sum_actors(
   num_nodes: Int,
   neighbor_map: NeighborMap,
+  failure_rate: Float,
 ) -> Result(Dict(Int, Subject(PushSumMessage)), String) {
   let actor_results =
     list.range(0, num_nodes - 1)
@@ -131,6 +138,7 @@ fn start_push_sum_actors(
           convergence_threshold: 1.0e-10,
           stability_rounds: 3,
           rng: node_id * 65_537 + 9731,
+          failure_rate: failure_rate,
         )
 
       case
@@ -239,12 +247,23 @@ fn handle_push_sum_message(
           let #(idx, rng2) = pick_index(n, st1.rng)
           case list.drop(st1.neighbors, idx) |> list.first {
             Ok(neighbor_id) -> {
-              case dict.get(st1.neighbor_subjects, neighbor_id) {
-                Ok(neighbor_subject) ->
-                  process.send(neighbor_subject, PushSumPair(out_s, out_w))
-                Error(_) -> Nil
+              let threshold = float.truncate(st1.failure_rate *. 100.0)
+              let rand = next_rng(rng2) % 100
+              let rng3 = next_rng(rand)
+              case rand < threshold {
+                True -> {
+                  // Message failed
+                  actor.continue(PushSumState(..st1, rng: rng3))
+                }
+                False -> {
+                  case dict.get(st1.neighbor_subjects, neighbor_id) {
+                    Ok(neighbor_subject) ->
+                      process.send(neighbor_subject, PushSumPair(out_s, out_w))
+                    Error(_) -> Nil
+                  }
+                  actor.continue(PushSumState(..st1, rng: rng3))
+                }
               }
-              actor.continue(PushSumState(..st1, rng: rng2))
             }
             Error(_) -> {
               actor.continue(PushSumState(..st1, rng: rng2))
