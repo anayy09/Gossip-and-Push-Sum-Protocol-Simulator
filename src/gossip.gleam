@@ -1,3 +1,4 @@
+import beam_diag
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/int
@@ -72,6 +73,7 @@ pub fn run_gossip_simulation(
   io.println(
     "Starting gossip simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
+  beam_diag.print()
   let start_ms = monotime.now_milliseconds()
   use actors <- result.try(start_gossip_actors(num_nodes, neighbor_map))
   io.println("Gossip actors started successfully")

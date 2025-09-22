@@ -1,3 +1,4 @@
+import beam_diag
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/float
@@ -82,6 +83,7 @@ pub fn run_push_sum_simulation(
   io.println(
     "Starting push-sum simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
+  beam_diag.print()
   let start_ms = monotime.now_milliseconds()
   use actors <- result.try(start_push_sum_actors(num_nodes, neighbor_map))
   io.println("Push-sum actors started successfully")
