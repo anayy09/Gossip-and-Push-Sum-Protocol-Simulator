@@ -1,4 +1,3 @@
-import beam_diag
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/int
@@ -6,8 +5,8 @@ import gleam/io
 import gleam/list
 import gleam/otp/actor
 import gleam/result
-import monotime
 import topology.{type NeighborMap}
+import utils.{elapsed_ms, now_milliseconds, print}
 
 fn bool_to_string(b: Bool) -> String {
   case b {
@@ -73,8 +72,8 @@ pub fn run_gossip_simulation(
   io.println(
     "Starting gossip simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
-  beam_diag.print()
-  let start_ms = monotime.now_milliseconds()
+  print()
+  let start_ms = now_milliseconds()
   use actors <- result.try(start_gossip_actors(num_nodes, neighbor_map))
   io.println("Gossip actors started successfully")
 
@@ -84,8 +83,8 @@ pub fn run_gossip_simulation(
       io.println("Waiting for gossip convergence")
       // Wait for convergence; ignore tick-based count
       let _ticks = wait_for_gossip_convergence(actors)
-      let end_ms = monotime.now_milliseconds()
-      let elapsed = monotime.elapsed_ms(start_ms, end_ms)
+      let end_ms = now_milliseconds()
+      let elapsed = elapsed_ms(start_ms, end_ms)
       io.println("Gossip elapsed wall time " <> int.to_string(elapsed) <> " ms")
       shutdown_gossip_actors(actors)
       io.println("Gossip actors shut down")
@@ -235,12 +234,12 @@ fn handle_gossip_message(
 
     CheckConvergence(reply_to) -> {
       let converged = state.rumor != ""
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " convergence check: has_rumor="
-        <> bool_to_string(converged),
-      )
+      // io.println(
+      //   "Node "
+      //   <> int.to_string(state.node_id)
+      //   <> " convergence check: has_rumor="
+      //   <> bool_to_string(converged),
+      // )
       process.send(reply_to, converged)
       actor.continue(state)
     }
@@ -254,7 +253,7 @@ fn handle_gossip_message(
     }
 
     Shutdown -> {
-      io.println("Node " <> int.to_string(state.node_id) <> " shutting down")
+      // io.println("Node " <> int.to_string(state.node_id) <> " shutting down")
       actor.stop()
     }
   }

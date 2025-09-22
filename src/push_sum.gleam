@@ -1,4 +1,3 @@
-import beam_diag
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/float
@@ -7,15 +6,15 @@ import gleam/io
 import gleam/list
 import gleam/otp/actor
 import gleam/result
-import monotime
 import topology.{type NeighborMap}
+import utils.{elapsed_ms, now_milliseconds, print}
 
-fn bool_to_string(b: Bool) -> String {
-  case b {
-    True -> "true"
-    False -> "false"
-  }
-}
+// fn bool_to_string(b: Bool) -> String {
+//   case b {
+//     True -> "true"
+//     False -> "false"
+//   }
+// }
 
 pub type PushSumMessage {
   PushSumPair(s: Float, w: Float)
@@ -83,8 +82,8 @@ pub fn run_push_sum_simulation(
   io.println(
     "Starting push-sum simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
-  beam_diag.print()
-  let start_ms = monotime.now_milliseconds()
+  print()
+  let start_ms = now_milliseconds()
   use actors <- result.try(start_push_sum_actors(num_nodes, neighbor_map))
   io.println("Push-sum actors started successfully")
 
@@ -93,8 +92,8 @@ pub fn run_push_sum_simulation(
       process.send(first_actor, StartPushSum)
       io.println("Waiting for push-sum convergence")
       let time_taken = wait_for_push_sum_convergence(actors)
-      let end_ms = monotime.now_milliseconds()
-      let elapsed = monotime.elapsed_ms(start_ms, end_ms)
+      let end_ms = now_milliseconds()
+      let elapsed = elapsed_ms(start_ms, end_ms)
       io.println(
         "Push-sum converged in ~" <> int.to_string(time_taken) <> " ticks",
       )
@@ -291,16 +290,16 @@ fn handle_push_sum_message(
 
     CheckConvergence(reply_to) -> {
       let converged = state.consecutive_stable_count >= state.stability_rounds
-      io.println(
-        "Node "
-        <> int.to_string(state.node_id)
-        <> " convergence check: consecutive="
-        <> int.to_string(state.consecutive_stable_count)
-        <> ", threshold="
-        <> int.to_string(state.stability_rounds)
-        <> ", converged="
-        <> bool_to_string(converged),
-      )
+      // io.println(
+      //   "Node "
+      //   <> int.to_string(state.node_id)
+      //   <> " convergence check: consecutive="
+      //   <> int.to_string(state.consecutive_stable_count)
+      //   <> ", threshold="
+      //   <> int.to_string(state.stability_rounds)
+      //   <> ", converged="
+      //   <> bool_to_string(converged),
+      // )
       process.send(reply_to, converged)
       actor.continue(state)
     }
@@ -325,7 +324,7 @@ fn handle_push_sum_message(
     }
 
     Shutdown -> {
-      io.println("Node " <> int.to_string(state.node_id) <> " shutting down")
+      // io.println("Node " <> int.to_string(state.node_id) <> " shutting down")
       actor.stop()
     }
   }
