@@ -63,7 +63,7 @@ pub fn main() -> Nil {
   }
 }
 
-fn get_command_line_args(
+pub fn get_command_line_args(
   args: List(String),
 ) -> Result(#(Int, Topology, Algorithm), String) {
   case args {
@@ -87,7 +87,7 @@ fn get_command_line_args(
   }
 }
 
-fn parse_topology(topology_str: String) -> Result(Topology, String) {
+pub fn parse_topology(topology_str: String) -> Result(Topology, String) {
   case topology_str {
     "full" -> Ok(topology.Full)
     "3D" -> Ok(topology.ThreeDGrid)
@@ -102,7 +102,7 @@ fn parse_topology(topology_str: String) -> Result(Topology, String) {
   }
 }
 
-fn parse_algorithm(algorithm_str: String) -> Result(Algorithm, String) {
+pub fn parse_algorithm(algorithm_str: String) -> Result(Algorithm, String) {
   case algorithm_str {
     "gossip" -> Ok(Gossip)
     "push-sum" -> Ok(PushSum)
