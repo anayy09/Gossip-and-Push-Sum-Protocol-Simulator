@@ -208,9 +208,22 @@ fn handle_gossip_message(
               case rand < threshold {
                 True -> {
                   // Message failed
+                  io.println(
+                    "Node "
+                    <> int.to_string(state.node_id)
+                    <> " gossip message to node "
+                    <> int.to_string(neighbor_id)
+                    <> " failed (simulated)",
+                  )
                   actor.continue(GossipState(..state, rng: rng3))
                 }
                 False -> {
+                  io.println(
+                    "Node "
+                    <> int.to_string(state.node_id)
+                    <> " sending rumor to node "
+                    <> int.to_string(neighbor_id),
+                  )
                   case dict.get(state.neighbor_subjects, neighbor_id) {
                     Ok(neighbor_subject) ->
                       process.send(neighbor_subject, Rumor(state.rumor))
@@ -295,7 +308,7 @@ fn wait_for_convergence_helper(
   process.sleep(10)
   let converged = check_all_converged(actors)
   // io.println("Convergence status: " <> bool_to_string(converged))
-  case converged || attempt > 2000 {
+  case converged || attempt > 100{
     True -> {
       let ticks = attempt
       io.println("Convergence reached in ~" <> int.to_string(ticks) <> " ticks")

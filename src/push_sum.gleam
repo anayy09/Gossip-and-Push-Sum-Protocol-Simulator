@@ -253,9 +253,28 @@ fn handle_push_sum_message(
               case rand < threshold {
                 True -> {
                   // Message failed
+                  io.println(
+                    "Node "
+                    <> int.to_string(st1.node_id)
+                    <> " push-sum message to node "
+                    <> int.to_string(neighbor_id)
+                    <> " failed (simulated)",
+                  )
                   actor.continue(PushSumState(..st1, rng: rng3))
                 }
                 False -> {
+                  io.println(
+                    "Node "
+                    <> int.to_string(st1.node_id)
+                    <> " sending push-sum (s="
+                    <> float.to_string(out_s)
+                    <> ", w="
+                    <> float.to_string(out_w)
+                    <> ", ratio="
+                    <> float.to_string(new_ratio)
+                    <> ") to node "
+                    <> int.to_string(neighbor_id),
+                  )
                   case dict.get(st1.neighbor_subjects, neighbor_id) {
                     Ok(neighbor_subject) ->
                       process.send(neighbor_subject, PushSumPair(out_s, out_w))
@@ -376,7 +395,7 @@ fn wait_for_push_sum_convergence_helper(
   broadcast_tick_push(actors)
   process.sleep(10)
   let converged = check_all_push_sum_converged(actors)
-  case converged || attempt > 2000 {
+  case converged || attempt > 100 {
     True -> {
       let ticks = attempt
       io.println(
