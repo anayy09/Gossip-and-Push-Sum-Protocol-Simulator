@@ -27,11 +27,3 @@ for alg in ['gossip', 'push-sum']:
     plt.close(fig)
 
 print("Plots saved in 'plots' folder")
-
-# Print some findings
-print("\nFindings:")
-print("1. Full topology generally converges fastest due to all-to-all connections.")
-print("2. Line topology converges slowest, especially for larger networks, due to limited connectivity.")
-print("3. 3D Grid and Imperfect 3D Grid show intermediate performance.")
-print("4. Push-sum often takes longer than gossip for convergence due to numerical stability checks.")
-print("5. Convergence time increases with network size, but logarithmic scale shows trends clearly.")
