@@ -6,6 +6,7 @@ import gleam/io
 import gleam/list
 import gleam/otp/actor
 import gleam/result
+import monotime
 import topology.{type NeighborMap}
 
 fn bool_to_string(b: Bool) -> String {
@@ -81,6 +82,7 @@ pub fn run_push_sum_simulation(
   io.println(
     "Starting push-sum simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
+  let start_ms = monotime.now_milliseconds()
   use actors <- result.try(start_push_sum_actors(num_nodes, neighbor_map))
   io.println("Push-sum actors started successfully")
 
@@ -89,10 +91,17 @@ pub fn run_push_sum_simulation(
       process.send(first_actor, StartPushSum)
       io.println("Waiting for push-sum convergence")
       let time_taken = wait_for_push_sum_convergence(actors)
-      io.println("Push-sum converged in " <> int.to_string(time_taken) <> " ms")
+      let end_ms = monotime.now_milliseconds()
+      let elapsed = monotime.elapsed_ms(start_ms, end_ms)
+      io.println(
+        "Push-sum converged in ~" <> int.to_string(time_taken) <> " ticks",
+      )
+      io.println(
+        "Push-sum elapsed wall time " <> int.to_string(elapsed) <> " ms",
+      )
       shutdown_push_sum_actors(actors)
       io.println("Push-sum actors shut down")
-      Ok(time_taken)
+      Ok(elapsed)
     }
     Error(_) -> Error("Failed to start push-sum simulation")
   }
@@ -349,11 +358,11 @@ fn wait_for_push_sum_convergence_helper(
   let converged = check_all_push_sum_converged(actors)
   case converged || attempt > 2000 {
     True -> {
-      let time = attempt * 10
+      let ticks = attempt
       io.println(
-        "Push-sum convergence reached in " <> int.to_string(time) <> " ms",
+        "Push-sum convergence reached in ~" <> int.to_string(ticks) <> " ticks",
       )
-      time
+      ticks * 10
     }
     False -> wait_for_push_sum_convergence_helper(actors, attempt + 1)
   }

@@ -5,6 +5,7 @@ import gleam/io
 import gleam/list
 import gleam/otp/actor
 import gleam/result
+import monotime
 import topology.{type NeighborMap}
 
 fn bool_to_string(b: Bool) -> String {
@@ -71,6 +72,7 @@ pub fn run_gossip_simulation(
   io.println(
     "Starting gossip simulation with " <> int.to_string(num_nodes) <> " nodes",
   )
+  let start_ms = monotime.now_milliseconds()
   use actors <- result.try(start_gossip_actors(num_nodes, neighbor_map))
   io.println("Gossip actors started successfully")
 
@@ -78,11 +80,14 @@ pub fn run_gossip_simulation(
     Ok(first_actor) -> {
       process.send(first_actor, StartGossip("Hello, this is a rumor!"))
       io.println("Waiting for gossip convergence")
-      let time_taken = wait_for_gossip_convergence(actors)
-      io.println("Gossip converged in " <> int.to_string(time_taken) <> " ms")
+      // Wait for convergence; ignore tick-based count
+      let _ticks = wait_for_gossip_convergence(actors)
+      let end_ms = monotime.now_milliseconds()
+      let elapsed = monotime.elapsed_ms(start_ms, end_ms)
+      io.println("Gossip elapsed wall time " <> int.to_string(elapsed) <> " ms")
       shutdown_gossip_actors(actors)
       io.println("Gossip actors shut down")
-      Ok(time_taken)
+      Ok(elapsed)
     }
     Error(_) -> Error("Failed to start gossip simulation")
   }
@@ -271,9 +276,9 @@ fn wait_for_convergence_helper(
   io.println("Convergence status: " <> bool_to_string(converged))
   case converged || attempt > 2000 {
     True -> {
-      let time = attempt * 10
-      io.println("Convergence reached in " <> int.to_string(time) <> " ms")
-      time
+      let ticks = attempt
+      io.println("Convergence reached in ~" <> int.to_string(ticks) <> " ticks")
+      ticks * 10
     }
     False -> wait_for_convergence_helper(actors, attempt + 1)
   }
