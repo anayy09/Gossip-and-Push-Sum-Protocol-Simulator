@@ -120,3 +120,31 @@ Each node starts with initial values `s = node_id + 1` and `w = 1.0`. In each ro
 
 When a non-zero failure rate is specified, each message has a probability of being dropped before delivery. This simulates network unreliability and allows testing algorithm resilience under adverse conditions.
 
+## Performance Results
+
+### Convergence Time vs Network Size
+
+The following plots show how convergence time scales with network size for different topologies:
+
+| Gossip Algorithm | Push-Sum Algorithm |
+|:----------------:|:------------------:|
+| ![Gossip Convergence](plots/gossip_convergence.png) | ![Push-Sum Convergence](plots/push-sum_convergence.png) |
+
+**Observations:**
+- **Line topology** shows the slowest convergence due to limited connectivity
+- **Full topology** scales well but has higher overhead for large networks
+- **Imperfect 3D Grid** provides a good balance between connectivity and efficiency
+
+### Failure Rate Impact
+
+These plots demonstrate how message drop rates affect convergence time (tested with 1000 nodes):
+
+| Gossip Algorithm | Push-Sum Algorithm |
+|:----------------:|:------------------:|
+| ![Gossip Failure](plots/gossip_failure.png) | ![Push-Sum Failure](plots/push-sum_failure.png) |
+
+**Observations:**
+- **Gossip** is more resilient to failures due to its redundant message propagation
+- **Push-Sum** convergence time decreases with higher failure rates as nodes reach stability faster with fewer updates
+- **3D and Imperfect 3D** topologies show interesting behavior at moderate failure rates
+
