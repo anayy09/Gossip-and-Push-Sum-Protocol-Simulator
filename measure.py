@@ -19,7 +19,7 @@ for alg in algorithms:
     for topo in topologies:
         for size in sizes:
             print(f"Running {alg} {topo} {size}")
-            cmd = ['gleam', 'run', str(size), topo, alg]
+            cmd = ['gleam', 'run', str(size), topo, alg, '0.0']
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=project_dir)
             if result.returncode == 0:
                 # The last line is the time

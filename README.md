@@ -1,113 +1,65 @@
-# Project 2: Gossip and Push-Sum Simulations
+# Gossip and Push-Sum Protocol Simulator
 
-This project implements gossip and push-sum algorithms for distributed systems using Gleam's actor model.
-
-## Team Members
-
-- Anay Sinhal (68789243)
-- Radhey Sharma (21089036)
-
-## What is Working
-
-- Gossip and Push-Sum algorithms implemented using Gleam's actor model for distributed simulations.
-- Support for multiple network topologies: full, 3D grid, line, and imperfect 3D grid.
-- Convergence detection mechanisms for both algorithms.
-- Command-line interface for running simulations with configurable parameters.
-- Measurement scripts (`measure.py`, `measure_bonus.py`) for automated performance analysis, data collection and for visualizing convergence times and failure impacts.
-- Unit tests for key functions in `project2_test.gleam`.
-
-## Largest Network Sizes
-
-The simulations were tested at various sizes; below are the largest tested sizes present in `results.json` for each topology and algorithm, with the recorded convergence time for that size.
-
-- **Gossip Algorithm** (largest tested size -> measured time):
-  - Full: 10,000 nodes -> 54,420 ms
-  - 3D Grid: 17,000 nodes -> 55,815 ms
-  - Line: 10,000 nodes -> 70,001 ms
-  - Imperfect 3D Grid: 12,000 nodes -> 15,217 ms
-
-- **Push-Sum Algorithm** (largest tested size -> measured time):
-  - Full: 10,000 nodes -> 74,963 ms
-  - 3D Grid: 10,000 nodes -> 70,077 ms
-  - Line: 10,000 nodes -> 70,730 ms
-  - Imperfect 3D Grid: 11,000 nodes -> 28,792 ms
-
-## Bonus: Failure Model Experiments
-
-We also ran a set of experiments measuring the impact of node message-drop failures on convergence time. The raw results are saved in `results_bonus.json` and the two summary plots (one for Gossip and one for Push-Sum) are in the `plots/` folder.
-
-Summary (1000 nodes, varying failure rate 0.0 → 0.5):
-
-- Gossip: the `3D` and `imp3D` topologies remain fast for low failure rates but show catastrophic slowdowns around 0.3 failure rate in the provided data; `full` and `line` stay roughly at high constant times for the tested values in `results_bonus.json`.
-
-- Push-Sum: the `full` topology is mostly stable; `3D`, `line`, and `imp3D` show substantial variance across failure rates in the provided runs (see `results_bonus.json` for exact numbers).
-
-Files:
-
-- `results_bonus.json` — JSON object with convergence times keyed by algorithm → topology → failure_rate.
-
-- `plots/gossip_failure.png` — Gossip plot generated from `results_bonus.json`.
-
-- `plots/pushsum_failure.png` — Push-Sum plot generated from `results_bonus.json`.
-
-Reproduce locally:
-
-1. Make sure Gleam and Erlang/OTP are installed and available in PATH.
-
-1. Run the bonus measurement script (it calls the Gleam simulation with a failure model):
-
-```powershell
-python measure_bonus.py
-```
-
-1. The script writes `results_bonus.json` and the plots into `plots/`.
-
-Notes:
-
-- The experiments were run with 1000 nodes and failure rates sampled at [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]. High measured times (≈32k–63k ms) indicate runs where many messages were dropped or the simulation hit the configured timeout. Inspect `results_bonus.json` to see exact values per topology and failure rate.
+A distributed systems simulator implementing Gossip and Push-Sum algorithms using Gleam's actor model. This project demonstrates rumor propagation and distributed average computation across various network topologies with optional failure simulation. This project is developed as part of the Distributed Operating System Principles (COP5615) course at the University of Florida.
 
 ## Features
 
 - **Gossip Algorithm**: Rumor propagation with convergence detection
-- **Push-Sum Algorithm**: Average computation with ratio stability detection
+- **Push-Sum Algorithm**: Distributed average computation with ratio stability detection
 - **Network Topologies**:
-  - Full: Every node connected to all others
-  - 3D Grid: Nodes in 3D cube with adjacent neighbors
-  - Line: Linear arrangement with 2 neighbors max
-  - Imperfect 3D Grid: 3D grid plus one random connection
-- **Actor-based Implementation**: Uses Gleam OTP for concurrent processing
-- **Convergence Timing**: Measures time to reach consensus
+  - **Full**: Every node connected to all others
+  - **3D Grid**: Nodes arranged in a 3D cube with adjacent neighbors
+  - **Line**: Linear arrangement with at most 2 neighbors per node
+  - **Imperfect 3D Grid**: 3D grid with one additional random connection per node
+- **Failure Simulation**: Configurable message drop rate to simulate network failures
+- **Actor-based Implementation**: Uses Gleam OTP for concurrent message processing
+- **Convergence Timing**: Measures time to reach consensus across all nodes
 
 ## Requirements
 
 - Gleam 1.12.0+
 - Erlang/OTP 26+
+- Python 3.8+ (for measurement scripts)
 
 ## Installation
 
 1. Install Gleam: [https://gleam.run/getting-started/](https://gleam.run/getting-started/)
-2. Clone/download the project
-3. Run `gleam deps download`
+2. Clone the repository
+3. Install dependencies:
+
+   ```bash
+   gleam deps download
+   ```
 
 ## Usage
 
 ```bash
-gleam run <num_nodes> <topology> <algorithm>
+gleam run <num_nodes> <topology> <algorithm> <failure_rate>
 ```
 
 ### Parameters
 
-- `num_nodes`: Number of nodes (integer)
-- `topology`: `full`, `3D`, `line`, `imp3D`
-- `algorithm`: `gossip`, `push-sum`
+| Parameter | Description | Valid Values |
+|-----------|-------------|--------------|
+| `num_nodes` | Number of nodes in the network | Any positive integer |
+| `topology` | Network topology type | `full`, `3D`, `line`, `imp3D` |
+| `algorithm` | Algorithm to run | `gossip`, `push-sum` |
+| `failure_rate` | Probability of message drop (0.0 = no failures) | `0.0` to `1.0` |
 
 ### Examples
 
 ```bash
-gleam run 10 full gossip
-gleam run 27 3D push-sum
-gleam run 100 line gossip
-gleam run 64 imp3D push-sum
+# Run gossip with 100 nodes in full topology, no failures
+gleam run 100 full gossip 0.0
+
+# Run push-sum with 27 nodes in 3D grid topology, no failures
+gleam run 27 3D push-sum 0.0
+
+# Run gossip with 1000 nodes and 10% message failure rate
+gleam run 1000 line gossip 0.1
+
+# Run push-sum with imperfect 3D grid and 20% failure rate
+gleam run 64 imp3D push-sum 0.2
 ```
 
 ## Output
@@ -118,10 +70,53 @@ The program outputs the convergence time in milliseconds:
 1247
 ```
 
+## Measurement Scripts
+
+Two Python scripts are provided for automated performance analysis:
+
+### Standard Performance Measurement
+
+```bash
+python measure.py
+```
+
+Runs simulations across different network sizes and topologies, saving results to `results.json` and generating convergence plots in the `plots/` folder.
+
+### Failure Rate Analysis
+
+```bash
+python measure_failure.py
+```
+
+Measures the impact of different failure rates on convergence time, saving results to `results_failure.json` and generating failure analysis plots.
+
 ## Project Structure
 
-- `src/project2.gleam`: Main entry point
-- `src/gossip.gleam`: Gossip algorithm implementation
-- `src/push_sum.gleam`: Push-sum algorithm implementation
-- `src/topology.gleam`: Network topology generators
+```text
+├── src/
+│   ├── main.gleam          # Main entry point and CLI parsing
+│   ├── gossip.gleam        # Gossip algorithm implementation
+│   ├── push_sum.gleam      # Push-Sum algorithm implementation
+│   ├── topology.gleam      # Network topology generators
+│   └── utils.gleam         # Utility functions
+├── test/
+│   └── project2_test.gleam # Unit tests
+├── measure.py              # Performance measurement script
+├── measure_failure.py      # Failure rate analysis script
+└── plots/                  # Generated visualization plots
+```
+
+## How It Works
+
+### Gossip Algorithm
+
+Each node starts without knowledge of the rumor. When a node receives the rumor, it begins spreading it to randomly selected neighbors. A node is considered converged once it has heard the rumor. The simulation completes when all nodes have received the rumor.
+
+### Push-Sum Algorithm
+
+Each node starts with initial values `s = node_id + 1` and `w = 1.0`. In each round, nodes send half of their `s` and `w` values to a random neighbor while keeping the other half. Nodes track the ratio `s/w` and are considered converged when this ratio remains stable (changes less than 10⁻¹⁰) for 3 consecutive rounds.
+
+### Failure Model
+
+When a non-zero failure rate is specified, each message has a probability of being dropped before delivery. This simulates network unreliability and allows testing algorithm resilience under adverse conditions.
 

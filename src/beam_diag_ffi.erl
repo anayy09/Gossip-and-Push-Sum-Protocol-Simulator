@@ -9,8 +9,7 @@ diag_line() ->
     ProcLimit = erlang:system_info(process_limit),
     Uptime = erlang:statistics(wall_clock),
     {_, SinceStartMs} = Uptime,
-    io_lib:format(
+    lists:flatten(io_lib:format(
       "BEAM: sched_online=~p sched_total=~p proc=~p/~p uptime_ms=~p",
       [SchedsOnline, Schedulers, ProcCount, ProcLimit, SinceStartMs]
-    )
-    |> lists:flatten().
+    )).

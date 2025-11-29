@@ -36,13 +36,13 @@ for alg in algorithms:
                 print(f"Error running {alg} {topo} {size} {failure_rate}: {result.stderr}")
 
 # Save to JSON
-with open('results_bonus.json', 'w') as f:
+with open('results_failure.json', 'w') as f:
     json.dump(results, f, indent=2)
 
-print("Results saved to results_bonus.json")
+print("Results saved to results_failure.json")
 
 # Load results
-with open('results_bonus.json', 'r') as f:
+with open('results_failure.json', 'r') as f:
     data = json.load(f)
 
 # Create plots folder
